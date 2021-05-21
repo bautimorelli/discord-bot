@@ -10,8 +10,10 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "axios": "^0.21.1",
     "discord.js": "^12.5.3",
     "dotenv": "^9.0.0",
-    "node-cron": "^3.0.0"
+    "node-cron": "^3.0.0",
+    "puppeteer": "^9.1.1"
   }
 }

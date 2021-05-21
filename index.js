@@ -1,12 +1,13 @@
 require('dotenv').config()
 require('./app/cron')
-const cron = require('node-cron');
+require('./app/puppeteer')
+
+const cron = require('node-cron')
 const { MessageEmbed } = require('discord.js')
 const fs = require('fs')
 const path = require('path')
 const client = require('./app/client')
-const http = require('http');
-const { channels } = require('./app/client');
+const axios = require('axios').default
 
 const PREFIX = "!"
 
@@ -26,99 +27,99 @@ client.on('message', (message) => {
         case "hi":
             handleHello(message)
             break
-        case "fashionreport":
-            handleFashionReport(message)
+        case "fashion":
+            handleNotifications(message, "fashionChannelId")
             break
-        case "resetnotification":
-            handleResetNotifications(message, args[0])
+        case "notifications":
+            handleNotifications(message, "notificationChannelId")
+            break
+        case "news":
+            handleNotifications(message, "newsChannelId")
+            break
         case "gif":
             handleGif(message, args[0])
+            break
+        case "help":
+            handleHelp(message)
+            break
+        case "latestreport":
+            handleLatestReport(message)
+            break
     }
 })
 
-function handleGif(message, tag) {
-    getGifUrl(tag, url => {
-        message.channel.send(new MessageEmbed().setImage(url))
-    })
-}
-
+//Command Hello/Hi
 function handleHello(message) {
-    getGifUrl('hi', url => {
+    getGifUrl('hi').then(url => {
         message.channel.send(new MessageEmbed().setImage(url))
     })
 }
 
-function getGifUrl(tag, callback) {
-    let options = {
-        host: 'api.giphy.com',
-        path: '/v1/gifs/random?tag=' + tag + '&limit=1&api_key=' + process.env.GIPHY_API_KEY,
-        headers: {
-            accept: 'application/json'
-        }
-    }
-    http.request(options, response => {
-        let value = '';
-        response.on('data', function(data) {
-            value += data
-        })
-        response.on('end', function() {
-            let images = JSON.parse(value).data.images
-            if (!images) return
-            callback(images.fixed_height.url)
-        })
-    }).end()
-}
-
-function handleFashionReport(message){
+//Command Help
+function handleHelp(message){
     const embed = new MessageEmbed()
-        .setTitle("I present to you this week's Fashion Report")
-        .setDescription('Go make me proud my friend, show them how FABULOUS you are')
+        .setTitle("These are the commands I know how to use!")
+        .setDescription(':kopa:')
         .setColor(9464465)
-        .setThumbnail('https://64.media.tumblr.com/31a795a6ce07d7b4d061cef8ed62ea79/tumblr_paptsfioBh1qbqs2do1_500.jpg')
-        .setImage('https://pbs.twimg.com/media/E0x8AVCUUAMW0mW?format=jpg&name=large')  
+        .addFields(
+            {name: '!hello / !hi', value: 'I will answer a Gif saying hi back'},
+            {name: '!gif (tag)', value: 'I will send a Gif of the topic of the tag'},
+            {name: '!notifications', value: 'It activates a message whenever there is a Daily Reset'},
+            {name: '!news', value: 'It activates a message whenever there is a new Lodestone News'},
+            {name: '!fashion', value: 'It activates a message whenever there is a new fashion report! (updates every friday)'},
+            {name: '!latestreport', value: 'Shows this weeks fashion report!'}
+        )
     message.channel.send(embed)
 }
 
-function handleResetNotifications(message, enabled){
+//Command LatestReport
+function handleLatestReport(message) {
+    let file = path.resolve(__dirname + "/updates/latestFashionReport")
+    let url = fs.readFileSync(file, 'utf8')
+    message.channel.send(url)
+}
+
+//Notifications Command
+function handleNotifications(message, topic){
     const guildId = message.guild.id
     const channelId = message.channel.id
     const fileName = path.resolve(__dirname + "/storage/" + guildId)
 
-    if (enabled != 'true' && enabled != 'false') {
-        message.channel.send("Unexpected value, please use true or false")
-        return
+    
+    let data = JSON.parse(fs.readFileSync(fileName))
+
+    let enabled = channelId != data[topic]
+
+    if (enabled) {
+        data[topic] = channelId
+    } else {
+        delete data[topic]
     }
 
-    enabled = enabled == 'true'
-    let data = JSON.parse(fs.readFileSync(fileName))
-    if (enabled) {
-        data.notificationChannelId = channelId
-    } else {
-        delete data.notificationChannelId
-    }
-    message.channel.send("Las notificaciones se " + (enabled ? "activaron" : "desactivaron"))
+    message.channel.send("notifications " + (enabled ? "enabled in this channel" : "disabled"))
 
     fs.writeFileSync(fileName, JSON.stringify(data))
+}
+
+//Command Gif
+function handleGif(message, tag) {
+    getGifUrl(tag).then(url => {
+        message.channel.send(new MessageEmbed().setImage(url))
+    })
+}
+async function getGifUrl(tag) {
+    let response = await axios.get('https://api.giphy.com/v1/gifs/random?tag=' + tag + '&limit=1&api_key=' + process.env.GIPHY_API_KEY)
+    let images = response.data.data.images
+    if (!images) throw ""
+
+    return images.fixed_height.url
 }
 
 
 //Cuando entra alguien nuevo al servidor
 client.on("guildMemberAdd", (member) => {
-    const guild = member.guild
-    if (!newUsers[guild.id]) newUsers[guild.id] = new Discord.Collection()
-    newUsers[guild.id].set(member.id, member.user)
-
-    if (newUsers[guild.id].size > 0) {
-        const userlist = newUsers[guild.id].map(u => u.toString()).join(" ")
-        guild.channels.cache.find(channel => channel.name === "general").send("Welcome our new user!\n" + userlist)
-        newUsers[guild.id].clear()
-    }
-})
-
-//Eliminar al usuario que se va
-client.on("guildMemberRemove", (member) => {
-    const guild = member.guild
-    if (newUsers[guild.id].has(member.id)) newUsers.delete(member.id)
+    const channel = member.guild.channels.cache.find(channel => channel.name === 'general')
+    channel.send(`Welcome our new user! ${member.user}`)
 })
 
 //Cuando me agregan a un servidor
