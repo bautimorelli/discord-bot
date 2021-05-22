@@ -38,18 +38,35 @@ cron.schedule(('0 */2 * * *'), async () => {
 
 //Check if new news are available (Every 2 hours)
 cron.schedule('0 */2 * * *', async () => {
-    let news = await scrapper()
-    if (!news) return
+    try {
+        let news = await scrapper()
+        if (!news) return
 
-    const embed = new MessageEmbed()
-        .setTitle(news.title)
-        .setDescription(news.description)
-        .setColor(9464465)
-        .setImage(news.img)
-        .setURL(news.href)
-    sendNotificationToEveryone(embed, "newsChannelId")
+        const embed = new MessageEmbed()
+            .setTitle(news.title)
+            .setDescription(news.description)
+            .setColor(9464465)
+            .setImage(news.img)
+            .setURL(news.href)
+        sendNotificationToEveryone(embed, "newsChannelId")
+    } catch(error) {
+        console.error(error)
+    }
+    killAll()
 })
 
+function killAll() {
+    try {
+        require("child_process").exec("killall chrome", (error, stdout, stderr) => {
+            console.error(error, stdout, stderr)
+        })
+    } catch(e) {}
+    try {
+        require("child_process").exec("killall chromium", (error, stdout, stderr) => {
+            console.error(error, stdout, stderr)
+        })
+    } catch(e) {}
+}
 
 function sendNotificationToEveryone(message, topic) {
     let dir = path.resolve(__dirname + "/../storage/")
