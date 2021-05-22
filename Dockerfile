@@ -10,7 +10,9 @@ ENV CHROMIUM_PATH /usr/bin/chromium-browser
 WORKDIR /app
 
 COPY package.json /app/
-COPY src /app/src
+COPY app /app/app
+COPY index.js /app/index.js
+
 RUN npm install
 
 VOLUME ["/app/storage", "/app/updates"]
