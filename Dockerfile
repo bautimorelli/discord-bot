@@ -17,4 +17,6 @@ RUN npm install
 
 VOLUME ["/app/storage", "/app/updates"]
 
+RUN echo $TZ > /etc/timezone
+
 CMD node .
